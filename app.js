@@ -84,17 +84,7 @@
   }
 
   function renderHero(s) {
-    var next = document.getElementById('hero-next');
-    if (!s.top) {
-      document.getElementById('hero-sub').textContent = '還沒有已達成的紀錄。';
-    } else {
-      document.getElementById('hero').textContent = fmt(s.top.power);
-      document.getElementById('hero-sub').textContent = '更新於 ' + fmtDate(s.top.date);
-    }
-    if (s.pending.length) {
-      next.textContent = '下一個目標 ' + fmt(s.pending[0].power);
-      next.hidden = false;
-    }
+    document.getElementById('hero').textContent = s.top ? fmt(s.top.power) : '—';
   }
 
   // ---- 表格 ----------------------------------------------------------
@@ -109,9 +99,6 @@
         el('td', { text: done ? fmtDate(r.date) : '尚未達成' })
       ]));
     });
-    var note = '已達成 ' + s.achieved.length + ' 筆';
-    if (s.pending.length) note += '，目標 ' + s.pending.length + ' 筆';
-    document.getElementById('count').textContent = '(' + note + ')';
     document.getElementById('table-card').hidden = false;
   }
 
@@ -259,6 +246,6 @@
       renderTable(s);
     })
     .catch(function () {
-      document.getElementById('hero-sub').textContent = '無法載入紀錄。';
+      document.getElementById('hero').textContent = '載入失敗';
     });
 })();
