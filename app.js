@@ -88,12 +88,8 @@
     if (!s.top) {
       document.getElementById('hero-sub').textContent = '還沒有已達成的紀錄。';
     } else {
-      var oldest = s.achieved.filter(function (r) { return r.date; })
-        .map(function (r) { return r.date; }).sort()[0];
       document.getElementById('hero').textContent = fmt(s.top.power);
-      document.getElementById('hero-sub').textContent =
-        ['更新於 ' + fmtDate(s.top.date), '已達成 ' + s.achieved.length + ' 筆', '自 ' + fmtDate(oldest) + ' 起']
-          .join('・');
+      document.getElementById('hero-sub').textContent = '更新於 ' + fmtDate(s.top.date);
     }
     if (s.pending.length) {
       next.textContent = '下一個目標 ' + fmt(s.pending[0].power);
