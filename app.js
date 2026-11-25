@@ -226,6 +226,18 @@
       }));
     });
 
+    // 折線在畫面橫向 px 位置的 y；超出範圍回傳 null
+    function curveY(px) {
+      for (var k = 1; k < points.length; k++) {
+        var xa = x(points[k - 1].t), xb = x(points[k].t);
+        if (px >= xa && px <= xb) {
+          var r = xb === xa ? 0 : (px - xa) / (xb - xa);
+          return y(points[k - 1].value) + r * (y(points[k].value) - y(points[k - 1].value));
+        }
+      }
+      return null;
+    }
+
     // 相鄰兩個里程碑之間的天數：放在連線中點的左上方（線的上方是空的，不會蓋到里程碑數字）
     var msPts = points.filter(function (p) { return p.milestone; });
     for (var mi = 1; mi < msPts.length; mi++) {
@@ -235,9 +247,18 @@
       var cx = (x(ma.t) + x(mb.t)) / 2;
       var cy = (y(ma.value) + y(mb.value)) / 2;
       var ctext = mb.msDiff + ' 天';
-      var tooLeft = cx - 4 - ctext.length * 7 < m.l; // 左邊放不下就改放右下方
+      var cw = ctext.length * 7;
+      var tooLeft = cx - 4 - cw < m.l; // 左邊放不下就改放右下方
+      var ly = cy - 8;
+      if (!tooLeft) {
+        // 曲線比連線凸的時候，標籤要再往上，避免壓到曲線
+        for (var s = 0; s <= 6; s++) {
+          var cyAt = curveY(cx - 4 - cw + cw * s / 6);
+          if (cyAt !== null) ly = Math.min(ly, cyAt - 5);
+        }
+      }
       root.appendChild(svg('text', {
-        class: 'diff-label', x: cx + (tooLeft ? 6 : -4), y: cy + (tooLeft ? 14 : -8),
+        class: 'diff-label', x: cx + (tooLeft ? 6 : -4), y: tooLeft ? cy + 14 : ly,
         'text-anchor': tooLeft ? 'start' : 'end', text: ctext
       }));
     }
@@ -321,8 +342,10 @@
   // ---- 一個種類 ------------------------------------------------------
   // 回傳 { name, section, draw }；section 預設隱藏，由導航切換顯示
   function renderCategory(container, cat) {
-    var type = TYPES[cat.type];
-    if (!type) throw new Error('unknown type ' + cat.type);
+    var base = TYPES[cat.type];
+    if (!base) throw new Error('unknown type ' + cat.type);
+    var type = Object.assign({}, base);
+    if (cat.milestone) type.milestone = cat.milestone; // 資料裡可以覆蓋這個種類的里程碑間隔
     var records = (cat.records || []).filter(function (r) { return r && typeof r.value === 'number'; });
     if (!records.length) return null;
 
