@@ -69,27 +69,53 @@
   }
 
   // ---- 頂部摘要 ------------------------------------------------------
-  function renderHero(records) {
-    var top = records.reduce(function (a, b) { return b.power > a.power ? b : a; });
-    var dated = records.filter(function (r) { return r.date; })
-      .map(function (r) { return r.date; }).sort();
-    document.getElementById('hero').textContent = fmt(top.power);
-    var parts = [top.date ? '更新於 ' + fmtDate(top.date) : '最新一筆尚未填日期'];
-    parts.push('共 ' + records.length + ' 筆');
-    if (dated.length) parts.push('自 ' + fmtDate(dated[0]) + ' 起');
-    document.getElementById('hero-sub').textContent = parts.join('・');
+  // 最上方還沒寫日期的 = 還沒達成（目標）。
+  // 比最高的「有日期」紀錄更低、但沒日期的，視為已達成但日期不詳。
+  function split(records) {
+    var top = records.filter(function (r) { return r.date; })
+      .reduce(function (a, b) { return !a || b.power > a.power ? b : a; }, null);
+    var topPower = top ? top.power : 0;
+    return {
+      top: top,
+      achieved: records.filter(function (r) { return r.power <= topPower; }),
+      pending: records.filter(function (r) { return r.power > topPower; })
+        .sort(function (a, b) { return a.power - b.power; })
+    };
+  }
+
+  function renderHero(s) {
+    var next = document.getElementById('hero-next');
+    if (!s.top) {
+      document.getElementById('hero-sub').textContent = '還沒有已達成的紀錄。';
+    } else {
+      var oldest = s.achieved.filter(function (r) { return r.date; })
+        .map(function (r) { return r.date; }).sort()[0];
+      document.getElementById('hero').textContent = fmt(s.top.power);
+      document.getElementById('hero-sub').textContent =
+        ['更新於 ' + fmtDate(s.top.date), '已達成 ' + s.achieved.length + ' 筆', '自 ' + fmtDate(oldest) + ' 起']
+          .join('・');
+    }
+    if (s.pending.length) {
+      next.textContent = '下一個目標 ' + fmt(s.pending[0].power);
+      next.hidden = false;
+    }
   }
 
   // ---- 表格 ----------------------------------------------------------
-  function renderTable(records) {
+  function renderTable(s) {
     var rows = document.getElementById('rows');
-    records.slice().sort(function (a, b) { return b.power - a.power; }).forEach(function (r) {
-      rows.appendChild(el('tr', {}, [
+    var pendingSet = {};
+    s.pending.forEach(function (r) { pendingSet[r.power] = true; });
+    s.achieved.concat(s.pending).sort(function (a, b) { return b.power - a.power; }).forEach(function (r) {
+      var done = !pendingSet[r.power];
+      rows.appendChild(el('tr', done ? {} : { className: 'pending' }, [
         el('td', { text: fmt(r.power) }),
-        el('td', { text: fmtDate(r.date) })
+        el('td', { text: done ? fmtDate(r.date) : '尚未達成' })
       ]));
     });
-    document.getElementById('count').textContent = '(' + records.length + ' 筆)';
+    var note = '已達成 ' + s.achieved.length + ' 筆';
+    if (s.pending.length) note += '，目標 ' + s.pending.length + ' 筆';
+    document.getElementById('count').textContent = '(' + note + ')';
     document.getElementById('table-card').hidden = false;
   }
 
@@ -231,9 +257,10 @@
     .then(function (data) {
       var records = (data.records || []).filter(function (r) { return r && typeof r.power === 'number'; });
       if (!records.length) throw new Error('empty');
-      renderHero(records);
+      var s = split(records);
+      renderHero(s);
       renderChart(records);
-      renderTable(records);
+      renderTable(s);
     })
     .catch(function () {
       document.getElementById('hero-sub').textContent = '無法載入紀錄。';
