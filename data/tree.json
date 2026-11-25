@@ -1,0 +1,11 @@
+{
+  "name": "紀元古樹",
+  "type": "tierpoints",
+  "records": [
+    {"value": 1, "date": "2025-02-09"},
+    {"value": 2, "date": "2025-02-09", "diff": 0},
+    {"value": 3, "date": "2025-02-09", "diff": 0},
+    {"value": 4, "date": "2025-03-29", "diff": 48},
+    {"value": 5, "date": "2025-10-30", "diff": 215}
+  ]
+}

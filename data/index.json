@@ -18,5 +18,9 @@
   {
     "name": "勞務派遣",
     "file": "labor.json"
+  },
+  {
+    "name": "紀元古樹",
+    "file": "tree.json"
   }
 ]

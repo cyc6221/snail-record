@@ -5,6 +5,18 @@
 
   // ---- 類型 ----------------------------------------------------------
   function trim(n) { return String(parseFloat(n)); }
+  function few(unit) {
+    return {
+      unit: unit,
+      fmt: function (v) { return v + ' ' + unit; },
+      axis: function (v) { return String(v); },
+      steps: [1, 2, 5, 10],
+      zeroBased: false,
+      tickStep: 1,      // 每個點剛好落在刻度線上
+      showPoints: true, // 每一筆都標點，不合併同一天
+      showDiff: true    // 兩點之間標示相隔天數
+    };
+  }
   var TYPES = {
     // 綜合實力：單位 M，999 -> 999M，1001 -> 1.001B
     power: {
@@ -13,16 +25,9 @@
       steps: [1, 2, 2.5, 5, 10],
       milestone: 100 // 每 100M 在圖上標一個里程碑
     },
-    // 勞務合約等級（級）。範圍很窄，Y 軸不從 0 開始
-    contract: {
-      fmt: function (v) { return v + ' 級'; },
-      axis: function (v) { return String(v); },
-      steps: [1, 2, 5, 10],
-      zeroBased: false,
-      tickStep: 1,      // Y 軸每 1 級一格，每個點剛好落在刻度線上
-      showPoints: true, // 每一筆都標點（筆數少才適合）
-      showDiff: true    // 兩點之間標示相隔天數
-    },
+    // 筆數很少的種類：每一筆都標點、兩點之間標示相隔天數。Y 軸不從 0 開始，每 1 單位一格
+    contract: few('級'),   // 勞務派遣
+    tierpoints: few('階'), // 紀元古樹
     // 等
     rank: {
       fmt: function (v) { return v + ' 等'; },
@@ -154,8 +159,22 @@
 
     var y0 = new Date(t0).getUTCFullYear();
     var y1 = new Date(t1).getUTCFullYear();
-    for (var yr = y0 + 1; yr <= y1; yr++) {
-      root.appendChild(svg('text', { class: 'tick', x: x(Date.UTC(yr, 0, 1)), y: H - 8, 'text-anchor': 'middle', text: String(yr) }));
+    if (y1 > y0) {
+      // 跨年：以每年 1/1 的位置標年份
+      for (var yr = y0 + 1; yr <= y1; yr++) {
+        root.appendChild(svg('text', { class: 'tick', x: x(Date.UTC(yr, 0, 1)), y: H - 8, 'text-anchor': 'middle', text: String(yr) }));
+      }
+    } else {
+      // 同一年內：以月份當刻度（最多約 6 個）
+      var d0 = new Date(t0);
+      var m0 = d0.getUTCMonth() + (d0.getUTCDate() > 1 ? 1 : 0);
+      var m1 = new Date(t1).getUTCMonth();
+      var mStep = Math.max(1, Math.ceil((m1 - m0 + 1) / 6));
+      for (var mo = m0; mo <= m1; mo += mStep) {
+        root.appendChild(svg('text', {
+          class: 'tick', x: x(Date.UTC(y0, mo, 1)), y: H - 8, 'text-anchor': 'middle', text: y0 + '/' + (mo + 1)
+        }));
+      }
     }
 
     var line = points.map(function (p, i) {
@@ -181,7 +200,7 @@
     if (type.showDiff) {
       for (var di = 1; di < points.length; di++) {
         var b = points[di];
-        if (b.diff == null) continue;
+        if (!b.diff) continue; // 沒有、或同一天（0 天）就不標
         var a = points[di - 1];
         var mx = (x(a.t) + x(b.t)) / 2;
         var my = (y(a.value) + y(b.value)) / 2;
@@ -243,7 +262,7 @@
       tipVal.textContent = type.fmt(p.value);
       var notes = [];
       if (p.milestone) notes.push('里程碑 ' + (type.milestoneLabel || type.axis)(p.milestone));
-      if (p.diff != null) notes.push('距上一級 ' + p.diff + ' 天');
+      if (p.diff != null) notes.push('距上一' + type.unit + ' ' + p.diff + ' 天');
       if (p.n > 1) notes.push('當日最高，共 ' + p.n + ' 筆');
       tipNote.textContent = notes.join('・');
       tipNote.hidden = !notes.length;
@@ -263,7 +282,8 @@
       var t = t0 + ((clientX - rect.left) / rect.width * W - m.l) / (W - m.l - m.r) * span;
       var best = 0;
       for (var i = 1; i < points.length; i++) {
-        if (Math.abs(points[i].t - t) < Math.abs(points[best].t - t)) best = i;
+        // 同一天有多點時取最高的那一點
+        if (Math.abs(points[i].t - t) <= Math.abs(points[best].t - t)) best = i;
       }
       return best;
     }
@@ -306,7 +326,7 @@
       el('th', { scope: 'col', text: cat.name }),
       el('th', { scope: 'col', text: '日期' })
     ];
-    if (hasDiff) heads.push(el('th', { scope: 'col', text: '距上一級' }));
+    if (hasDiff) heads.push(el('th', { scope: 'col', text: '距上一' + (type.unit || '級') }));
     var table = el('table', {}, [el('thead', {}, [el('tr', {}, heads)]), rows]);
 
     var section = el('section', {
@@ -319,7 +339,12 @@
     ]);
     container.appendChild(section);
 
-    var points = daily(records);
+    // 每點都標的種類不合併同一天；其他種類每天只取最高值
+    var points = type.showPoints
+      ? records.filter(function (r) { return r.date; })
+          .map(function (r) { return { date: r.date, t: parseDate(r.date), value: r.value, diff: r.diff, n: 1 }; })
+          .sort(function (a, b) { return a.t - b.t || a.value - b.value; })
+      : daily(records);
     if (type.milestone) {
       // 每個整數倍，標在第一次達到它的那一天。
       // 同一天跨過多個時，標最高的那個；記錄一開始就已超過的不標。
