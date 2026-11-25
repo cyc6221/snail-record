@@ -10,7 +10,8 @@
     power: {
       fmt: function (v) { return v >= 1000 ? trim((v / 1000).toFixed(3)) + 'B' : v + 'M'; },
       axis: function (v) { return v === 0 ? '0' : v >= 1000 ? trim(v / 1000) + 'B' : v + 'M'; },
-      steps: [1, 2, 2.5, 5, 10]
+      steps: [1, 2, 2.5, 5, 10],
+      milestone: 100 // 每 100M 在圖上標一個里程碑
     },
     // 等級
     level: {
@@ -124,6 +125,16 @@
     }));
     root.appendChild(svg('path', { class: 'line', d: line }));
 
+    // 里程碑：第一次達到整數倍的那一天，標在線上，數字放在點的右下方
+    points.forEach(function (p) {
+      if (!p.milestone) return;
+      root.appendChild(svg('circle', { class: 'ring', cx: x(p.t), cy: y(p.value), r: 5 }));
+      root.appendChild(svg('circle', { class: 'dot', cx: x(p.t), cy: y(p.value), r: 3 }));
+      root.appendChild(svg('text', {
+        class: 'ms-label', x: x(p.t) + 7, y: y(p.value) + 14, text: type.axis(p.milestone)
+      }));
+    });
+
     // 終點標記與數值
     root.appendChild(svg('circle', { class: 'ring', cx: x(last.t), cy: y(last.value), r: 6 }));
     root.appendChild(svg('circle', { class: 'dot', cx: x(last.t), cy: y(last.value), r: 4 }));
@@ -158,8 +169,11 @@
       [cross, hoverRing, hoverDot].forEach(function (n) { n.setAttribute('visibility', 'visible'); });
       tipDate.textContent = fmtDate(p.date);
       tipVal.textContent = type.fmt(p.value);
-      tipNote.textContent = p.n > 1 ? '當日最高，共 ' + p.n + ' 筆' : '';
-      tipNote.hidden = p.n <= 1;
+      var notes = [];
+      if (p.milestone) notes.push('里程碑 ' + type.axis(p.milestone));
+      if (p.n > 1) notes.push('當日最高，共 ' + p.n + ' 筆');
+      tipNote.textContent = notes.join('・');
+      tipNote.hidden = !notes.length;
       tip.hidden = false;
       var scale = wrap.clientWidth / W;
       var left = px * scale + 12;
@@ -231,6 +245,17 @@
     container.appendChild(section);
 
     var points = daily(records);
+    if (type.milestone) {
+      // 每個整數倍，標在第一次達到它的那一天
+      for (var ms = type.milestone; ms <= top; ms += type.milestone) {
+        for (var i = 0; i < points.length; i++) {
+          if (points[i].value >= ms) {
+            if (!points[i].milestone) points[i].milestone = ms;
+            break;
+          }
+        }
+      }
+    }
     return {
       name: cat.name,
       section: section,

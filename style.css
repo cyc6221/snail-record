@@ -62,6 +62,7 @@ details { margin-top: 12px; }
 .chart .grid { stroke: var(--grid); stroke-width: 1; }
 .chart .axis { stroke: var(--axis); stroke-width: 1; }
 .chart .tick { fill: var(--muted); font-size: 11px; }
+.chart .ms-label { fill: var(--muted); font-size: 11px; }
 .chart .end-label { fill: var(--text); font-size: 12px; font-weight: 600; }
 .chart .line { fill: none; stroke: var(--series); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .chart .area { fill: var(--series); opacity: .1; }
