@@ -13,6 +13,13 @@
       steps: [1, 2, 2.5, 5, 10],
       milestone: 100 // 每 100M 在圖上標一個里程碑
     },
+    // 勞務合約等級（級）。範圍很窄，Y 軸不從 0 開始
+    contract: {
+      fmt: function (v) { return v + ' 級'; },
+      axis: function (v) { return String(v); },
+      steps: [1, 2, 5, 10],
+      zeroBased: false
+    },
     // 等
     rank: {
       fmt: function (v) { return v + ' 等'; },
@@ -75,25 +82,27 @@
     records.forEach(function (r) {
       if (!r.date) return;
       var d = byDay[r.date];
-      if (!d) d = byDay[r.date] = { date: r.date, t: parseDate(r.date), value: r.value, n: 0 };
+      if (!d) d = byDay[r.date] = { date: r.date, t: parseDate(r.date), value: r.value, diff: r.diff, n: 0 };
       d.n += 1;
-      if (r.value > d.value) d.value = r.value;
+      if (r.value > d.value) { d.value = r.value; d.diff = r.diff; }
     });
     return Object.keys(byDay).map(function (k) { return byDay[k]; })
       .sort(function (a, b) { return a.t - b.t; });
   }
 
-  function niceTicks(max, steps) {
-    var raw = max / 5;
+  // 從 lo 往下取到整齊的刻度，一路到 hi 以上
+  function niceTicks(lo, hi, steps) {
+    if (hi <= lo) hi = lo + 1;
+    var raw = (hi - lo) / 5;
     var mag = Math.pow(10, Math.floor(Math.log10(raw)));
     var step = mag * 10;
     for (var i = 0; i < steps.length; i++) {
       if (steps[i] * mag >= raw) { step = steps[i] * mag; break; }
     }
     var ticks = [];
-    for (var v = 0; ; v += step) {
+    for (var v = Math.floor(lo / step) * step; ; v += step) {
       ticks.push(v);
-      if (v >= max) break;
+      if (v >= hi) break;
     }
     return ticks;
   }
@@ -109,11 +118,15 @@
     var t1 = points[points.length - 1].t;
     var span = (t1 - t0) || 1;
     var maxV = points.reduce(function (a, p) { return Math.max(a, p.value); }, 0);
-    var ticks = niceTicks(maxV, type.steps);
+    var minV = type.zeroBased === false
+      ? points.reduce(function (a, p) { return Math.min(a, p.value); }, maxV)
+      : 0;
+    var ticks = niceTicks(minV, maxV, type.steps);
+    var yMin = ticks[0];
     var yMax = ticks[ticks.length - 1];
 
     function x(t) { return m.l + (t - t0) / span * (W - m.l - m.r); }
-    function y(v) { return H - m.b - v / yMax * (H - m.t - m.b); }
+    function y(v) { return H - m.b - (v - yMin) / (yMax - yMin) * (H - m.t - m.b); }
 
     var root = svg('svg', {
       viewBox: '0 0 ' + W + ' ' + H,
@@ -123,7 +136,7 @@
     });
 
     ticks.forEach(function (v) {
-      root.appendChild(svg('line', { class: v === 0 ? 'axis' : 'grid', x1: m.l, x2: W - m.r, y1: y(v), y2: y(v) }));
+      root.appendChild(svg('line', { class: v === yMin ? 'axis' : 'grid', x1: m.l, x2: W - m.r, y1: y(v), y2: y(v) }));
       root.appendChild(svg('text', { class: 'tick', x: m.l - 6, y: y(v) + 4, 'text-anchor': 'end', text: type.axis(v) }));
     });
 
@@ -139,7 +152,7 @@
     var last = points[points.length - 1];
     root.appendChild(svg('path', {
       class: 'area',
-      d: line + 'L' + x(last.t).toFixed(1) + ',' + y(0) + 'L' + x(t0).toFixed(1) + ',' + y(0) + 'Z'
+      d: line + 'L' + x(last.t).toFixed(1) + ',' + y(yMin) + 'L' + x(t0).toFixed(1) + ',' + y(yMin) + 'Z'
     }));
     root.appendChild(svg('path', { class: 'line', d: line }));
 
@@ -192,6 +205,7 @@
       tipVal.textContent = type.fmt(p.value);
       var notes = [];
       if (p.milestone) notes.push('里程碑 ' + (type.milestoneLabel || type.axis)(p.milestone));
+      if (p.diff != null) notes.push('距上一級 ' + p.diff + ' 天');
       if (p.n > 1) notes.push('當日最高，共 ' + p.n + ' 筆');
       tipNote.textContent = notes.join('・');
       tipNote.hidden = !notes.length;
@@ -239,21 +253,23 @@
 
     var top = records.reduce(function (a, r) { return Math.max(a, r.value); }, 0);
     var chart = el('div', { className: 'chart' });
+    var hasDiff = records.some(function (r) { return r.diff != null; });
     var rows = el('tbody');
     records.slice().sort(function (a, b) { return b.value - a.value; }).forEach(function (r) {
-      rows.appendChild(el('tr', {}, [
+      var cells = [
         el('td', { text: type.fmt(r.value) }),
         el('td', { text: fmtDate(r.date) })
-      ]));
+      ];
+      if (hasDiff) cells.push(el('td', { text: r.diff != null ? r.diff + ' 天' : '—' }));
+      rows.appendChild(el('tr', {}, cells));
     });
 
-    var table = el('table', {}, [
-      el('thead', {}, [el('tr', {}, [
-        el('th', { scope: 'col', text: cat.name }),
-        el('th', { scope: 'col', text: '日期' })
-      ])]),
-      rows
-    ]);
+    var heads = [
+      el('th', { scope: 'col', text: cat.name }),
+      el('th', { scope: 'col', text: '日期' })
+    ];
+    if (hasDiff) heads.push(el('th', { scope: 'col', text: '距上一級' }));
+    var table = el('table', {}, [el('thead', {}, [el('tr', {}, heads)]), rows]);
 
     var section = el('section', {
       className: 'card', role: 'tabpanel', id: 'panel-' + cat.name, hidden: ''

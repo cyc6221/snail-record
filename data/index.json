@@ -14,5 +14,9 @@
   {
     "name": "寶石諧振",
     "file": "gem.json"
+  },
+  {
+    "name": "勞務派遣",
+    "file": "labor.json"
   }
 ]
