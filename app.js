@@ -13,6 +13,12 @@
       steps: [1, 2, 2.5, 5, 10],
       milestone: 100 // 每 100M 在圖上標一個里程碑
     },
+    // 階
+    tier: {
+      fmt: function (v) { return v + ' 階'; },
+      axis: function (v) { return String(v); },
+      steps: [1, 2, 5, 10]
+    },
     // 等級
     level: {
       fmt: function (v) { return v + ' 級'; },
