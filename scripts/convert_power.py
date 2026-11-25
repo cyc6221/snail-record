@@ -26,6 +26,13 @@ def main(src, dst):
             date = '%04d-%02d-%02d' % tuple(map(int, m.groups())) if m else None
             records.append({'power': power, 'date': date})
 
+    # 最高的「有日期」紀錄之上，還沒填日期的是預留（尚未達成），略過
+    top = max((r['power'] for r in records if r['date']), default=0)
+    skipped = [r['power'] for r in records if r['date'] is None and r['power'] > top]
+    records = [r for r in records if r['power'] <= top]
+    if skipped:
+        print('略過尚未達成的預留列：%s' % sorted(skipped))
+
     powers = [r['power'] for r in records]
     if len(powers) != len(set(powers)):
         sys.exit('有重複的編號')

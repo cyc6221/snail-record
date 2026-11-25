@@ -76,6 +76,4 @@ summary:focus-visible { outline: 2px solid var(--series); outline-offset: 2px; }
 table { width: 100%; border-collapse: collapse; margin-top: 8px; }
 th, td { text-align: left; padding: 6px 8px; border-top: 1px solid var(--border); }
 th { color: var(--muted); font-weight: normal; font-size: .85rem; }
-td { font-variant-numeric: tabular-nums; }
-tr.pending td { color: var(--muted); }
-[hidden] { display: none !important; }
+td { font-variant-numeric: tabular-nums; }[hidden] { display: none !important; }

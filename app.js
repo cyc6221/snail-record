@@ -69,34 +69,18 @@
   }
 
   // ---- 頂部摘要 ------------------------------------------------------
-  // 最上方還沒寫日期的 = 還沒達成（目標）。
-  // 比最高的「有日期」紀錄更低、但沒日期的，視為已達成但日期不詳。
-  function split(records) {
-    var top = records.filter(function (r) { return r.date; })
-      .reduce(function (a, b) { return !a || b.power > a.power ? b : a; }, null);
-    var topPower = top ? top.power : 0;
-    return {
-      top: top,
-      achieved: records.filter(function (r) { return r.power <= topPower; }),
-      pending: records.filter(function (r) { return r.power > topPower; })
-        .sort(function (a, b) { return a.power - b.power; })
-    };
-  }
-
-  function renderHero(s) {
-    document.getElementById('hero').textContent = s.top ? fmt(s.top.power) : '—';
+  function renderHero(records) {
+    var top = records.reduce(function (a, r) { return Math.max(a, r.power); }, 0);
+    document.getElementById('hero').textContent = fmt(top);
   }
 
   // ---- 表格 ----------------------------------------------------------
-  function renderTable(s) {
+  function renderTable(records) {
     var rows = document.getElementById('rows');
-    var pendingSet = {};
-    s.pending.forEach(function (r) { pendingSet[r.power] = true; });
-    s.achieved.concat(s.pending).sort(function (a, b) { return b.power - a.power; }).forEach(function (r) {
-      var done = !pendingSet[r.power];
-      rows.appendChild(el('tr', done ? {} : { className: 'pending' }, [
+    records.slice().sort(function (a, b) { return b.power - a.power; }).forEach(function (r) {
+      rows.appendChild(el('tr', {}, [
         el('td', { text: fmt(r.power) }),
-        el('td', { text: done ? fmtDate(r.date) : '尚未達成' })
+        el('td', { text: fmtDate(r.date) })
       ]));
     });
     document.getElementById('table-card').hidden = false;
@@ -240,10 +224,9 @@
     .then(function (data) {
       var records = (data.records || []).filter(function (r) { return r && typeof r.power === 'number'; });
       if (!records.length) throw new Error('empty');
-      var s = split(records);
-      renderHero(s);
+      renderHero(records);
       renderChart(records);
-      renderTable(s);
+      renderTable(records);
     })
     .catch(function () {
       document.getElementById('hero').textContent = '載入失敗';
