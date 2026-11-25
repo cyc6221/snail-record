@@ -226,6 +226,22 @@
       }));
     });
 
+    // 相鄰兩個里程碑之間的天數：放在連線中點的左上方（線的上方是空的，不會蓋到里程碑數字）
+    var msPts = points.filter(function (p) { return p.milestone; });
+    for (var mi = 1; mi < msPts.length; mi++) {
+      var mb = msPts[mi];
+      if (!mb.msDiff) continue;
+      var ma = msPts[mi - 1];
+      var cx = (x(ma.t) + x(mb.t)) / 2;
+      var cy = (y(ma.value) + y(mb.value)) / 2;
+      var ctext = mb.msDiff + ' 天';
+      var tooLeft = cx - 4 - ctext.length * 7 < m.l; // 左邊放不下就改放右下方
+      root.appendChild(svg('text', {
+        class: 'diff-label', x: cx + (tooLeft ? 6 : -4), y: cy + (tooLeft ? 14 : -8),
+        'text-anchor': tooLeft ? 'start' : 'end', text: ctext
+      }));
+    }
+
     // 終點標記與數值
     root.appendChild(svg('circle', { class: 'ring', cx: x(last.t), cy: y(last.value), r: 6 }));
     root.appendChild(svg('circle', { class: 'dot', cx: x(last.t), cy: y(last.value), r: 4 }));
@@ -262,6 +278,7 @@
       tipVal.textContent = type.fmt(p.value);
       var notes = [];
       if (p.milestone) notes.push('里程碑 ' + (type.milestoneLabel || type.axis)(p.milestone));
+      if (p.msDiff) notes.push('距上一個里程碑 ' + p.msDiff + ' 天');
       if (p.diff != null) notes.push('距上一' + type.unit + ' ' + p.diff + ' 天');
       if (p.n > 1) notes.push('當日最高，共 ' + p.n + ' 筆');
       tipNote.textContent = notes.join('・');
@@ -356,6 +373,13 @@
           }
         }
       }
+      // 距上一個里程碑的天數
+      var prevMs = null;
+      points.forEach(function (p) {
+        if (!p.milestone) return;
+        if (prevMs) p.msDiff = Math.round((p.t - prevMs.t) / 86400000);
+        prevMs = p;
+      });
     }
     return {
       name: cat.name,
