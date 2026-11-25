@@ -18,7 +18,10 @@
       fmt: function (v) { return v + ' 級'; },
       axis: function (v) { return String(v); },
       steps: [1, 2, 5, 10],
-      zeroBased: false
+      zeroBased: false,
+      tickStep: 1,      // Y 軸每 1 級一格，每個點剛好落在刻度線上
+      showPoints: true, // 每一筆都標點（筆數少才適合）
+      showDiff: true    // 兩點之間標示相隔天數
     },
     // 等
     rank: {
@@ -121,7 +124,16 @@
     var minV = type.zeroBased === false
       ? points.reduce(function (a, p) { return Math.min(a, p.value); }, maxV)
       : 0;
-    var ticks = niceTicks(minV, maxV, type.steps);
+    var ticks;
+    if (type.tickStep) {
+      ticks = [];
+      for (var tv = Math.floor(minV / type.tickStep) * type.tickStep; tv < maxV + type.tickStep; tv += type.tickStep) {
+        ticks.push(tv);
+        if (tv >= maxV) break;
+      }
+    } else {
+      ticks = niceTicks(minV, maxV, type.steps);
+    }
     var yMin = ticks[0];
     var yMax = ticks[ticks.length - 1];
 
@@ -155,6 +167,32 @@
       d: line + 'L' + x(last.t).toFixed(1) + ',' + y(yMin) + 'L' + x(t0).toFixed(1) + ',' + y(yMin) + 'Z'
     }));
     root.appendChild(svg('path', { class: 'line', d: line }));
+
+    // 每一筆都標點（最後一點由終點標記負責）
+    if (type.showPoints) {
+      points.forEach(function (p) {
+        if (p === last) return;
+        root.appendChild(svg('circle', { class: 'ring', cx: x(p.t), cy: y(p.value), r: 6 }));
+        root.appendChild(svg('circle', { class: 'dot', cx: x(p.t), cy: y(p.value), r: 4 }));
+      });
+    }
+
+    // 兩點之間標示相隔天數：放在線段中點的右下方，放不下就改放左下方
+    if (type.showDiff) {
+      for (var di = 1; di < points.length; di++) {
+        var b = points[di];
+        if (b.diff == null) continue;
+        var a = points[di - 1];
+        var mx = (x(a.t) + x(b.t)) / 2;
+        var my = (y(a.value) + y(b.value)) / 2;
+        var dtext = b.diff + ' 天';
+        var flip = mx + 6 + dtext.length * 7 > W - 4;
+        root.appendChild(svg('text', {
+          class: 'diff-label', x: mx + (flip ? -6 : 6), y: my + 14,
+          'text-anchor': flip ? 'end' : 'start', text: dtext
+        }));
+      }
+    }
 
     // 里程碑：第一次達到整數倍的那一天，標在線上，數字放在點的右下方
     points.forEach(function (p) {
