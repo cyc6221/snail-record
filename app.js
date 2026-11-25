@@ -195,13 +195,12 @@
   }
 
   // ---- 一個種類 ------------------------------------------------------
-  var redraws = [];
-
+  // 回傳 { name, section, draw }；section 預設隱藏，由導航切換顯示
   function renderCategory(container, cat) {
     var type = TYPES[cat.type];
     if (!type) throw new Error('unknown type ' + cat.type);
     var records = (cat.records || []).filter(function (r) { return r && typeof r.value === 'number'; });
-    if (!records.length) return;
+    if (!records.length) return null;
 
     var top = records.reduce(function (a, r) { return Math.max(a, r.value); }, 0);
     var chart = el('div', { className: 'chart' });
@@ -221,19 +220,68 @@
       rows
     ]);
 
-    container.appendChild(el('section', { className: 'card' }, [
+    var section = el('section', {
+      className: 'card', role: 'tabpanel', id: 'panel-' + cat.name, hidden: ''
+    }, [
       el('h2', { text: cat.name }),
       el('p', { className: 'hero', text: type.fmt(top) }),
       chart,
       el('details', {}, [el('summary', { text: '查看全部紀錄' }), table])
-    ]));
+    ]);
+    container.appendChild(section);
 
     var points = daily(records);
-    if (points.length) {
-      var draw = function () { drawChart(chart, points, cat, type); };
-      draw();
-      redraws.push(draw);
+    return {
+      name: cat.name,
+      section: section,
+      // 隱藏時寬度是 0，所以要在顯示之後才畫
+      draw: function () { if (points.length) drawChart(chart, points, cat, type); }
+    };
+  }
+
+  // ---- 導航：一次顯示一個種類 ----------------------------------------
+  function setupTabs(container, views) {
+    var nav = el('div', { className: 'tabs', role: 'tablist' });
+    var buttons = views.map(function (v, i) {
+      var b = el('button', { type: 'button', role: 'tab', 'aria-controls': v.section.id, text: v.name });
+      b.addEventListener('click', function () { select(i, true); });
+      b.addEventListener('keydown', function (e) {
+        var to = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : null;
+        if (to === null) return;
+        e.preventDefault();
+        to = (to + views.length) % views.length;
+        select(to, true);
+        buttons[to].focus();
+      });
+      nav.appendChild(b);
+      return b;
+    });
+    container.parentNode.insertBefore(nav, container);
+
+    var active = -1;
+    function select(i, remember) {
+      active = i;
+      views.forEach(function (v, j) {
+        v.section.hidden = j !== i;
+        buttons[j].setAttribute('aria-selected', j === i ? 'true' : 'false');
+        buttons[j].tabIndex = j === i ? 0 : -1;
+      });
+      views[i].draw();
+      if (remember) {
+        try { history.replaceState(null, '', '#' + encodeURIComponent(views[i].name)); } catch (e) { /* 忽略 */ }
+      }
     }
+
+    var wanted = decodeURIComponent(location.hash.slice(1));
+    var start = 0;
+    views.forEach(function (v, i) { if (v.name === wanted) start = i; });
+    select(start, false);
+
+    var timer;
+    window.addEventListener('resize', function () {
+      clearTimeout(timer);
+      timer = setTimeout(function () { views[active].draw(); }, 100);
+    });
   }
 
   // ---- 載入 ----------------------------------------------------------
@@ -250,12 +298,10 @@
     })
     .then(function (cats) {
       var container = document.getElementById('categories');
-      cats.forEach(function (cat) { renderCategory(container, cat); });
-      var timer;
-      window.addEventListener('resize', function () {
-        clearTimeout(timer);
-        timer = setTimeout(function () { redraws.forEach(function (f) { f(); }); }, 100);
-      });
+      var views = cats.map(function (cat) { return renderCategory(container, cat); })
+        .filter(Boolean);
+      if (!views.length) throw new Error('empty');
+      setupTabs(container, views);
     })
     .catch(function () {
       document.getElementById('error').hidden = false;
