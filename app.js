@@ -13,6 +13,14 @@
       steps: [1, 2, 2.5, 5, 10],
       milestone: 100 // 每 100M 在圖上標一個里程碑
     },
+    // 等
+    rank: {
+      fmt: function (v) { return v + ' 等'; },
+      axis: function (v) { return String(v); },
+      steps: [1, 2, 5, 10],
+      milestone: 10, // 每 10 等在圖上標一個里程碑
+      milestoneLabel: function (v) { return v + ' 等'; }
+    },
     // 階
     tier: {
       fmt: function (v) { return v + ' 階'; },
@@ -259,11 +267,12 @@
 
     var points = daily(records);
     if (type.milestone) {
-      // 每個整數倍，標在第一次達到它的那一天
+      // 每個整數倍，標在第一次達到它的那一天。
+      // 同一天跨過多個時，標最高的那個；記錄一開始就已超過的不標。
       for (var ms = type.milestone; ms <= top; ms += type.milestone) {
         for (var i = 0; i < points.length; i++) {
           if (points[i].value >= ms) {
-            if (!points[i].milestone) points[i].milestone = ms;
+            if (i > 0 || points[0].value === ms) points[i].milestone = ms;
             break;
           }
         }

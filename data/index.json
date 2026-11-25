@@ -10,5 +10,9 @@
   {
     "name": "瑪那",
     "file": "mana.json"
+  },
+  {
+    "name": "寶石諧振",
+    "file": "gem.json"
   }
 ]
