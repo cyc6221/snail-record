@@ -9,26 +9,8 @@
 <body>
   <main>
     <h1>🐌 最強蝸牛・遊戲紀錄</h1>
-
-    <section class="card">
-      <h2>綜合實力</h2>
-      <p class="hero" id="hero">…</p>
-    </section>
-
-    <section class="card" id="chart-card" hidden>
-      <h2>綜合實力成長 <span class="sub">每日最高值</span></h2>
-      <div id="chart" class="chart"></div>
-    </section>
-
-    <section class="card" id="table-card" hidden>
-      <details>
-        <summary>查看全部紀錄</summary>
-        <table>
-          <thead><tr><th scope="col">綜合實力</th><th scope="col">日期</th></tr></thead>
-          <tbody id="rows"></tbody>
-        </table>
-      </details>
-    </section>
+    <div id="categories"></div>
+    <p id="error" class="muted" hidden>無法載入紀錄。</p>
   </main>
   <script src="app.js"></script>
 </body>

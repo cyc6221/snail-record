@@ -1,0 +1,10 @@
+[
+  {
+    "name": "綜合實力",
+    "file": "power.json"
+  },
+  {
+    "name": "元素法陣",
+    "file": "element.json"
+  }
+]

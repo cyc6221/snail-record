@@ -41,6 +41,8 @@ h2 { font-size: 1.1rem; margin: 0 0 8px; }
 }
 .hero { font-size: 3rem; font-weight: 600; line-height: 1.1; margin: 4px 0; }
 .card p { margin: 0; }
+.chart { margin-top: 12px; }
+details { margin-top: 12px; }
 
 .chart { position: relative; }
 .chart svg { display: block; width: 100%; height: auto; touch-action: pan-y; }

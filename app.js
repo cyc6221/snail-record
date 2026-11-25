@@ -3,11 +3,23 @@
 
   var SVGNS = 'http://www.w3.org/2000/svg';
 
-  // ---- 格式 ----------------------------------------------------------
-  // 資料單位是 M：999 -> 999M，1001 -> 1.001B
+  // ---- 類型 ----------------------------------------------------------
   function trim(n) { return String(parseFloat(n)); }
-  function fmt(m) { return m >= 1000 ? trim((m / 1000).toFixed(3)) + 'B' : m + 'M'; }
-  function fmtAxis(m) { return m === 0 ? '0' : m >= 1000 ? trim(m / 1000) + 'B' : m + 'M'; }
+  var TYPES = {
+    // 綜合實力：單位 M，999 -> 999M，1001 -> 1.001B
+    power: {
+      fmt: function (v) { return v >= 1000 ? trim((v / 1000).toFixed(3)) + 'B' : v + 'M'; },
+      axis: function (v) { return v === 0 ? '0' : v >= 1000 ? trim(v / 1000) + 'B' : v + 'M'; },
+      steps: [1, 2, 2.5, 5, 10]
+    },
+    // 等級
+    level: {
+      fmt: function (v) { return v + ' 級'; },
+      axis: function (v) { return String(v); },
+      steps: [1, 2, 5, 10]
+    }
+  };
+
   function fmtDate(s) {
     if (!s) return '—';
     var p = s.split('-');
@@ -44,18 +56,17 @@
     records.forEach(function (r) {
       if (!r.date) return;
       var d = byDay[r.date];
-      if (!d) d = byDay[r.date] = { date: r.date, t: parseDate(r.date), power: r.power, n: 0 };
+      if (!d) d = byDay[r.date] = { date: r.date, t: parseDate(r.date), value: r.value, n: 0 };
       d.n += 1;
-      if (r.power > d.power) d.power = r.power;
+      if (r.value > d.value) d.value = r.value;
     });
     return Object.keys(byDay).map(function (k) { return byDay[k]; })
       .sort(function (a, b) { return a.t - b.t; });
   }
 
-  function niceTicks(max) {
+  function niceTicks(max, steps) {
     var raw = max / 5;
     var mag = Math.pow(10, Math.floor(Math.log10(raw)));
-    var steps = [1, 2, 2.5, 5, 10];
     var step = mag * 10;
     for (var i = 0; i < steps.length; i++) {
       if (steps[i] * mag >= raw) { step = steps[i] * mag; break; }
@@ -68,27 +79,8 @@
     return ticks;
   }
 
-  // ---- 頂部摘要 ------------------------------------------------------
-  function renderHero(records) {
-    var top = records.reduce(function (a, r) { return Math.max(a, r.power); }, 0);
-    document.getElementById('hero').textContent = fmt(top);
-  }
-
-  // ---- 表格 ----------------------------------------------------------
-  function renderTable(records) {
-    var rows = document.getElementById('rows');
-    records.slice().sort(function (a, b) { return b.power - a.power; }).forEach(function (r) {
-      rows.appendChild(el('tr', {}, [
-        el('td', { text: fmt(r.power) }),
-        el('td', { text: fmtDate(r.date) })
-      ]));
-    });
-    document.getElementById('table-card').hidden = false;
-  }
-
   // ---- 圖表 ----------------------------------------------------------
-  function drawChart(points) {
-    var wrap = document.getElementById('chart');
+  function drawChart(wrap, points, cat, type) {
     wrap.textContent = '';
     var W = Math.max(wrap.clientWidth, 280);
     var H = W < 480 ? 240 : 300;
@@ -97,8 +89,8 @@
     var t0 = points[0].t;
     var t1 = points[points.length - 1].t;
     var span = (t1 - t0) || 1;
-    var maxP = points.reduce(function (a, p) { return Math.max(a, p.power); }, 0);
-    var ticks = niceTicks(maxP);
+    var maxV = points.reduce(function (a, p) { return Math.max(a, p.value); }, 0);
+    var ticks = niceTicks(maxV, type.steps);
     var yMax = ticks[ticks.length - 1];
 
     function x(t) { return m.l + (t - t0) / span * (W - m.l - m.r); }
@@ -108,23 +100,22 @@
       viewBox: '0 0 ' + W + ' ' + H,
       role: 'img',
       tabindex: '0',
-      'aria-label': '綜合實力成長折線圖，可用左右方向鍵逐日查看；完整數值見下方表格'
+      'aria-label': cat.name + '成長折線圖，可用左右方向鍵逐日查看；完整數值見下方表格'
     });
 
     ticks.forEach(function (v) {
       root.appendChild(svg('line', { class: v === 0 ? 'axis' : 'grid', x1: m.l, x2: W - m.r, y1: y(v), y2: y(v) }));
-      root.appendChild(svg('text', { class: 'tick', x: m.l - 6, y: y(v) + 4, 'text-anchor': 'end', text: fmtAxis(v) }));
+      root.appendChild(svg('text', { class: 'tick', x: m.l - 6, y: y(v) + 4, 'text-anchor': 'end', text: type.axis(v) }));
     });
 
     var y0 = new Date(t0).getUTCFullYear();
     var y1 = new Date(t1).getUTCFullYear();
     for (var yr = y0 + 1; yr <= y1; yr++) {
-      var tx = Date.UTC(yr, 0, 1);
-      root.appendChild(svg('text', { class: 'tick', x: x(tx), y: H - 8, 'text-anchor': 'middle', text: String(yr) }));
+      root.appendChild(svg('text', { class: 'tick', x: x(Date.UTC(yr, 0, 1)), y: H - 8, 'text-anchor': 'middle', text: String(yr) }));
     }
 
     var line = points.map(function (p, i) {
-      return (i ? 'L' : 'M') + x(p.t).toFixed(1) + ',' + y(p.power).toFixed(1);
+      return (i ? 'L' : 'M') + x(p.t).toFixed(1) + ',' + y(p.value).toFixed(1);
     }).join('');
     var last = points[points.length - 1];
     root.appendChild(svg('path', {
@@ -134,10 +125,10 @@
     root.appendChild(svg('path', { class: 'line', d: line }));
 
     // 終點標記與數值
-    root.appendChild(svg('circle', { class: 'ring', cx: x(last.t), cy: y(last.power), r: 6 }));
-    root.appendChild(svg('circle', { class: 'dot', cx: x(last.t), cy: y(last.power), r: 4 }));
+    root.appendChild(svg('circle', { class: 'ring', cx: x(last.t), cy: y(last.value), r: 6 }));
+    root.appendChild(svg('circle', { class: 'dot', cx: x(last.t), cy: y(last.value), r: 4 }));
     root.appendChild(svg('text', {
-      class: 'end-label', x: x(last.t) - 8, y: y(last.power) - 10, 'text-anchor': 'end', text: fmt(last.power)
+      class: 'end-label', x: x(last.t) - 8, y: y(last.value) - 10, 'text-anchor': 'end', text: type.fmt(last.value)
     }));
 
     // 互動：十字線 + 浮動說明
@@ -151,9 +142,9 @@
     var tip = el('div', { className: 'tip', hidden: '' });
     var tipDate = el('div', { className: 'd' });
     var tipVal = el('b');
+    var tipNote = el('div', { className: 'd' });
     tip.appendChild(tipDate);
     tip.appendChild(el('div', { className: 'v' }, [el('span', { className: 'key' }), tipVal]));
-    var tipNote = el('div', { className: 'd' });
     tip.appendChild(tipNote);
     wrap.appendChild(tip);
 
@@ -161,12 +152,12 @@
     function show(i) {
       current = i;
       var p = points[i];
-      var px = x(p.t), py = y(p.power);
+      var px = x(p.t), py = y(p.value);
       cross.setAttribute('x1', px); cross.setAttribute('x2', px);
       [hoverRing, hoverDot].forEach(function (c) { c.setAttribute('cx', px); c.setAttribute('cy', py); });
       [cross, hoverRing, hoverDot].forEach(function (n) { n.setAttribute('visibility', 'visible'); });
       tipDate.textContent = fmtDate(p.date);
-      tipVal.textContent = fmt(p.power);
+      tipVal.textContent = type.fmt(p.value);
       tipNote.textContent = p.n > 1 ? '當日最高，共 ' + p.n + ' 筆' : '';
       tipNote.hidden = p.n <= 1;
       tip.hidden = false;
@@ -196,39 +187,77 @@
     root.addEventListener('focus', function () { show(current < 0 ? points.length - 1 : current); });
     root.addEventListener('blur', hide);
     root.addEventListener('keydown', function (e) {
-      if (e.key === 'ArrowLeft') { show(Math.max(0, (current < 0 ? points.length - 1 : current) - 1)); e.preventDefault(); }
-      else if (e.key === 'ArrowRight') { show(Math.min(points.length - 1, (current < 0 ? points.length - 1 : current) + 1)); e.preventDefault(); }
+      var from = current < 0 ? points.length - 1 : current;
+      if (e.key === 'ArrowLeft') { show(Math.max(0, from - 1)); e.preventDefault(); }
+      else if (e.key === 'ArrowRight') { show(Math.min(points.length - 1, from + 1)); e.preventDefault(); }
       else if (e.key === 'Escape') hide();
     });
   }
 
-  function renderChart(records) {
-    var points = daily(records);
-    if (!points.length) return;
-    var card = document.getElementById('chart-card');
-    card.hidden = false;
-    drawChart(points);
-    var timer;
-    window.addEventListener('resize', function () {
-      clearTimeout(timer);
-      timer = setTimeout(function () { drawChart(points); }, 100);
+  // ---- 一個種類 ------------------------------------------------------
+  var redraws = [];
+
+  function renderCategory(container, cat) {
+    var type = TYPES[cat.type];
+    if (!type) throw new Error('unknown type ' + cat.type);
+    var records = (cat.records || []).filter(function (r) { return r && typeof r.value === 'number'; });
+    if (!records.length) return;
+
+    var top = records.reduce(function (a, r) { return Math.max(a, r.value); }, 0);
+    var chart = el('div', { className: 'chart' });
+    var rows = el('tbody');
+    records.slice().sort(function (a, b) { return b.value - a.value; }).forEach(function (r) {
+      rows.appendChild(el('tr', {}, [
+        el('td', { text: type.fmt(r.value) }),
+        el('td', { text: fmtDate(r.date) })
+      ]));
     });
+
+    var table = el('table', {}, [
+      el('thead', {}, [el('tr', {}, [
+        el('th', { scope: 'col', text: cat.name }),
+        el('th', { scope: 'col', text: '日期' })
+      ])]),
+      rows
+    ]);
+
+    container.appendChild(el('section', { className: 'card' }, [
+      el('h2', { text: cat.name }),
+      el('p', { className: 'hero', text: type.fmt(top) }),
+      chart,
+      el('details', {}, [el('summary', { text: '查看全部紀錄' }), table])
+    ]));
+
+    var points = daily(records);
+    if (points.length) {
+      var draw = function () { drawChart(chart, points, cat, type); };
+      draw();
+      redraws.push(draw);
+    }
   }
 
   // ---- 載入 ----------------------------------------------------------
-  fetch('data/power.json', { cache: 'no-cache' })
-    .then(function (res) {
-      if (!res.ok) throw new Error(res.status);
+  function getJSON(url) {
+    return fetch(url, { cache: 'no-cache' }).then(function (res) {
+      if (!res.ok) throw new Error(url + ' ' + res.status);
       return res.json();
+    });
+  }
+
+  getJSON('data/index.json')
+    .then(function (index) {
+      return Promise.all(index.map(function (e) { return getJSON('data/' + e.file); }));
     })
-    .then(function (data) {
-      var records = (data.records || []).filter(function (r) { return r && typeof r.power === 'number'; });
-      if (!records.length) throw new Error('empty');
-      renderHero(records);
-      renderChart(records);
-      renderTable(records);
+    .then(function (cats) {
+      var container = document.getElementById('categories');
+      cats.forEach(function (cat) { renderCategory(container, cat); });
+      var timer;
+      window.addEventListener('resize', function () {
+        clearTimeout(timer);
+        timer = setTimeout(function () { redraws.forEach(function (f) { f(); }); }, 100);
+      });
     })
     .catch(function () {
-      document.getElementById('hero').textContent = '載入失敗';
+      document.getElementById('error').hidden = false;
     });
 })();
