@@ -17,7 +17,9 @@
     level: {
       fmt: function (v) { return v + ' 級'; },
       axis: function (v) { return String(v); },
-      steps: [1, 2, 5, 10]
+      steps: [1, 2, 5, 10],
+      milestone: 50, // 每 50 級在圖上標一個里程碑
+      milestoneLabel: function (v) { return v + ' 級'; }
     }
   };
 
@@ -127,11 +129,14 @@
 
     // 里程碑：第一次達到整數倍的那一天，標在線上，數字放在點的右下方
     points.forEach(function (p) {
-      if (!p.milestone) return;
+      if (!p.milestone || p === last) return; // 最後一點已有終點標記
+      var label = (type.milestoneLabel || type.axis)(p.milestone);
+      var nearRight = x(p.t) + 7 + label.length * 7 > W - 4; // 放不下就改放左下方
       root.appendChild(svg('circle', { class: 'ring', cx: x(p.t), cy: y(p.value), r: 5 }));
       root.appendChild(svg('circle', { class: 'dot', cx: x(p.t), cy: y(p.value), r: 3 }));
       root.appendChild(svg('text', {
-        class: 'ms-label', x: x(p.t) + 7, y: y(p.value) + 14, text: type.axis(p.milestone)
+        class: 'ms-label', x: x(p.t) + (nearRight ? -7 : 7), y: y(p.value) + 14,
+        'text-anchor': nearRight ? 'end' : 'start', text: label
       }));
     });
 
@@ -170,7 +175,7 @@
       tipDate.textContent = fmtDate(p.date);
       tipVal.textContent = type.fmt(p.value);
       var notes = [];
-      if (p.milestone) notes.push('里程碑 ' + type.axis(p.milestone));
+      if (p.milestone) notes.push('里程碑 ' + (type.milestoneLabel || type.axis)(p.milestone));
       if (p.n > 1) notes.push('當日最高，共 ' + p.n + ' 筆');
       tipNote.textContent = notes.join('・');
       tipNote.hidden = !notes.length;
