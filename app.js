@@ -17,7 +17,9 @@
     tier: {
       fmt: function (v) { return v + ' 階'; },
       axis: function (v) { return String(v); },
-      steps: [1, 2, 5, 10]
+      steps: [1, 2, 5, 10],
+      milestone: 10, // 每 10 階在圖上標一個里程碑
+      milestoneLabel: function (v) { return v + ' 階'; }
     },
     // 等級
     level: {
