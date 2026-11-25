@@ -8,7 +8,7 @@
 </head>
 <body>
   <main>
-    <h1>🐌 最強蝸牛 遊戲紀錄</h1>
+    <h1>🐌 最強蝸牛・遊戲紀錄</h1>
 
     <section id="latest" class="card" hidden>
       <h2>最新進度</h2>
@@ -16,34 +16,10 @@
     </section>
 
     <section class="card">
-      <h2 id="form-title">新增紀錄</h2>
-      <form id="form">
-        <label>日期<input type="date" name="date" required></label>
-        <label>關卡 / 進度<input type="text" name="stage" placeholder="例：第 3 章 12 關"></label>
-        <label>等級<input type="text" name="level" inputmode="numeric" placeholder="例：120"></label>
-        <label>戰力<input type="text" name="power" placeholder="例：1.2M"></label>
-        <label class="wide">備註<textarea name="note" rows="3" placeholder="今天做了什麼、心得、踩雷…"></textarea></label>
-        <div class="actions wide">
-          <button type="submit" id="submit">新增</button>
-          <button type="button" id="cancel" class="secondary" hidden>取消編輯</button>
-        </div>
-      </form>
-    </section>
-
-    <section class="card">
-      <div class="row">
-        <h2>紀錄列表 <span id="count"></span></h2>
-        <div class="actions">
-          <button type="button" id="export" class="secondary">匯出</button>
-          <button type="button" id="import" class="secondary">匯入</button>
-          <input type="file" id="file" accept="application/json" hidden>
-        </div>
-      </div>
+      <h2>紀錄列表 <span id="count"></span></h2>
       <ul id="list"></ul>
-      <p id="empty" class="muted">還沒有紀錄，從上面新增第一筆吧。</p>
+      <p id="status" class="muted">載入中…</p>
     </section>
-
-    <p class="muted foot">資料只存在這個瀏覽器裡，換裝置或清除資料前請先「匯出」備份。</p>
   </main>
   <script src="app.js"></script>
 </body>

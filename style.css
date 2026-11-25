@@ -4,9 +4,6 @@
   --text: #222;
   --muted: #6b6b6b;
   --border: #ddd9cc;
-  --accent: #5a8f3d;
-  --accent-text: #fff;
-  --danger: #b3382c;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -15,9 +12,6 @@
     --text: #e8e8df;
     --muted: #a0a394;
     --border: #3a4030;
-    --accent: #7fb35c;
-    --accent-text: #10130b;
-    --danger: #e0786c;
   }
 }
 * { box-sizing: border-box; }
@@ -37,48 +31,15 @@ h2 { font-size: 1.1rem; margin: 0 0 12px; }
   padding: 16px;
   margin-bottom: 16px;
 }
-form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.wide { grid-column: 1 / -1; }
-label { display: flex; flex-direction: column; gap: 4px; font-size: .9rem; color: var(--muted); }
-input, textarea {
-  font: inherit;
-  color: var(--text);
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 10px;
-}
-input:focus-visible, textarea:focus-visible, button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-button {
-  font: inherit;
-  cursor: pointer;
-  border: 1px solid var(--accent);
-  background: var(--accent);
-  color: var(--accent-text);
-  border-radius: 8px;
-  padding: 8px 16px;
-}
-button.secondary { background: transparent; color: var(--text); border-color: var(--border); }
-button.danger { color: var(--danger); }
-button.small { padding: 2px 10px; font-size: .85rem; }
-.actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.row { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
-.row h2 { margin: 0; }
 .muted { color: var(--muted); }
-.foot { font-size: .85rem; text-align: center; }
 #count { color: var(--muted); font-weight: normal; font-size: .9rem; }
 #list { list-style: none; margin: 0; padding: 0; }
 #list li { border-top: 1px solid var(--border); padding: 12px 0; }
-#list li:first-child { border-top: 0; }
+#list li:first-child { border-top: 0; padding-top: 0; }
 .meta { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; }
 .meta .date { font-weight: 600; }
-.note { margin: 6px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.note { margin: 6px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 dl { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px 16px; }
 dt { font-size: .8rem; color: var(--muted); }
 dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
-@media (max-width: 480px) {
-  form { grid-template-columns: 1fr; }
-}
+[hidden] { display: none !important; }
