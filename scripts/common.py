@@ -1,12 +1,6 @@
-"""把 raw/*.csv（數值<TAB>日期）一次轉成 data/ 下的 JSON，並產生 data/index.json。
+"""各種類轉換腳本共用的工具：讀 raw/<名稱>.csv，寫 data/<檔名>.json，並更新 data/index.json。
 
-用法（在專案根目錄）：python -I scripts/convert.py
-
-新增種類：把 raw/<名稱>.csv 放好，在下面的 CATEGORIES 加一行即可。
-類型：
-  power  綜合實力，單位 M（999 = 999M，1001 = 1.001B）
-  level  等級
-
+raw 檔格式：每列「數值<TAB>日期」，日期如 2026年11月22日。
 最高的「有日期」紀錄之上、還沒填日期的列視為預留（尚未達成），會略過。
 """
 import io
@@ -15,14 +9,9 @@ import os
 import re
 import sys
 
-# (名稱, 類型, 輸出檔名) — 順序就是網站上的顯示順序
-CATEGORIES = [
-    ('綜合實力', 'power', 'power.json'),
-    ('元素法陣', 'level', 'element.json'),
-]
-
-RAW_DIR = 'raw'
-DATA_DIR = 'data'
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+RAW_DIR = os.path.join(ROOT, 'raw')
+DATA_DIR = os.path.join(ROOT, 'data')
 DATE_RE = re.compile(r'(\d{4})年(\d{1,2})月(\d{1,2})日')
 
 
@@ -43,22 +32,10 @@ def parse(src):
     return records
 
 
-def convert(name, kind, filename):
-    src = os.path.join(RAW_DIR, name + '.csv')
-    dst = os.path.join(DATA_DIR, filename)
-    records = parse(src)
-
-    top = max((r['value'] for r in records if r['date']), default=0)
-    skipped = sorted(r['value'] for r in records if r['date'] is None and r['value'] > top)
-    records = [r for r in records if r['value'] <= top]
-    if skipped:
-        print('  略過尚未達成的預留列：%s' % skipped)
-
+def check(records, top):
     values = [r['value'] for r in records]
     if len(values) != len(set(values)):
-        sys.exit('%s：有重複的數值' % src)
-    records.sort(key=lambda r: r['value'])
-
+        sys.exit('有重複的數值')
     if values:
         missing = sorted(set(range(min(values), top + 1)) - set(values))
         if missing:
@@ -73,28 +50,52 @@ def convert(name, kind, filename):
     if undated:
         print('  提醒：%d 筆沒有日期（不會畫進走勢圖）' % undated)
 
+
+def update_index(name, filename):
+    """同名取代，新的種類接在最後面。順序就是網站導航的順序。"""
+    path = os.path.join(DATA_DIR, 'index.json')
+    index = []
+    if os.path.exists(path):
+        with io.open(path, encoding='utf-8') as f:
+            index = json.load(f)
+    entry = {'name': name, 'file': filename}
+    for i, e in enumerate(index):
+        if e['name'] == name:
+            index[i] = entry
+            break
+    else:
+        index.append(entry)
+    with io.open(path, 'w', encoding='utf-8', newline='\n') as f:
+        json.dump(index, f, ensure_ascii=False, indent=2)
+        f.write('\n')
+
+
+def write(name, kind, filename, records):
     lines = [json.dumps(r, ensure_ascii=False) for r in records]
+    dst = os.path.join(DATA_DIR, filename)
     with io.open(dst, 'w', encoding='utf-8', newline='\n') as f:
         f.write('{\n  "name": %s,\n  "type": "%s",\n  "records": [\n    '
                 % (json.dumps(name, ensure_ascii=False), kind))
         f.write(',\n    '.join(lines))
         f.write('\n  ]\n}\n')
-    print('  %d 筆 -> %s' % (len(records), dst))
+    update_index(name, filename)
+    print('  %d 筆 -> data/%s' % (len(records), filename))
 
 
-def main():
-    index = []
-    for name, kind, filename in CATEGORIES:
-        print(name)
-        if not os.path.exists(os.path.join(RAW_DIR, name + '.csv')):
-            sys.exit('找不到 %s/%s.csv' % (RAW_DIR, name))
-        convert(name, kind, filename)
-        index.append({'name': name, 'file': filename})
+def convert(name, kind, filename):
+    """標準流程。某個種類格式特殊時，可以在自己的腳本裡改寫這幾步。"""
+    print(name)
+    src = os.path.join(RAW_DIR, name + '.csv')
+    if not os.path.exists(src):
+        sys.exit('找不到 %s' % src)
+    records = parse(src)
 
-    with io.open(os.path.join(DATA_DIR, 'index.json'), 'w', encoding='utf-8', newline='\n') as f:
-        json.dump(index, f, ensure_ascii=False, indent=2)
-        f.write('\n')
+    top = max((r['value'] for r in records if r['date']), default=0)
+    skipped = sorted(r['value'] for r in records if r['date'] is None and r['value'] > top)
+    records = [r for r in records if r['value'] <= top]
+    if skipped:
+        print('  略過尚未達成的預留列：%s' % skipped)
 
-
-if __name__ == '__main__':
-    main()
+    records.sort(key=lambda r: r['value'])
+    check(records, top)
+    write(name, kind, filename, records)
